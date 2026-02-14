@@ -357,16 +357,24 @@ export class Reviewer {
       const endIdx = nextMatch ? nextMatch.index : reviewText.length;
       findingRegex.lastIndex = match.index + match[0].length;
 
-      const description = reviewText
-        .substring(startIdx, endIdx)
+      const block = reviewText.substring(startIdx, endIdx);
+
+      const description = block
         .replace(/^[\s>]+/, '')
         .trim();
+
+      let suggestion: string | undefined;
+      const suggestionMatch = block.match(/```suggestion\n([\s\S]*?)```/);
+      if (suggestionMatch) {
+        suggestion = suggestionMatch[1];
+      }
 
       findings.push({
         severity,
         file: file || 'unknown',
         line: parseInt(line, 10) || 0,
         description,
+        suggestion,
       });
     }
 

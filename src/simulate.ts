@@ -212,7 +212,7 @@ export function clearCache(): void {
 \`\`\``;
 
 const REVIEW_HEADER = '<!-- niteni-review -->';
-const BOT_SIGNATURE = '\n\n---\n*Reviewed by [Niteni](https://gitlab.com/anthropic-tools/niteni) — AI-powered code review powered by [Gemini CLI](https://github.com/gemini-cli-extensions/code-review)*';
+const BOT_SIGNATURE = '\n\n---\n*Reviewed by [Niteni](https://github.com/denyherianto/niteni) — AI-powered code review powered by [Gemini CLI](https://github.com/gemini-cli-extensions/code-review)*';
 
 function severityColor(severity: string): string {
   switch (severity) {

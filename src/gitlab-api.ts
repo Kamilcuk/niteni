@@ -101,6 +101,14 @@ export class GitLabAPI {
     return this._request<void>('DELETE', `/merge_requests/${mrIid}/notes/${noteId}`);
   }
 
+  async getMergeRequestDiscussions(mrIid: string): Promise<any[]> {
+    return this._request<any[]>('GET', `/merge_requests/${mrIid}/discussions?per_page=100`);
+  }
+
+  async deleteMergeRequestDiscussionNote(mrIid: string, discussionId: string, noteId: number): Promise<void> {
+    return this._request<void>('DELETE', `/merge_requests/${mrIid}/discussions/${discussionId}/notes/${noteId}`);
+  }
+
   async getFileContent(filePath: string, ref: string): Promise<string> {
     const encodedPath = encodeURIComponent(filePath);
     return this._request<string>('GET', `/repository/files/${encodedPath}/raw?ref=${ref}`);

@@ -16,6 +16,7 @@ export interface Finding {
   file: string;
   line: number;
   description: string;
+  suggestion?: string;
 }
 
 export interface ReviewResult {

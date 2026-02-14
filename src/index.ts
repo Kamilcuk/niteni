@@ -2,7 +2,7 @@ import { GitLabAPI } from './gitlab-api';
 import { Reviewer } from './reviewer';
 import { config, validate, validateForMR } from './config';
 import { execSync } from 'child_process';
-import type { ReviewResult } from './types';
+import type { ReviewResult, DiffPosition } from './types';
 
 // Re-export classes and functions
 export { GitLabAPI } from './gitlab-api';
@@ -30,7 +30,7 @@ export type {
 
 export const REVIEW_HEADER = '<!-- niteni-review -->';
 
-const BOT_SIGNATURE = '\n\n---\n*Reviewed by [Niteni](https://gitlab.com/anthropic-tools/niteni) — AI-powered code review powered by [Gemini CLI](https://github.com/gemini-cli-extensions/code-review)*';
+const BOT_SIGNATURE = '\n\n---\n*Reviewed by [Niteni](https://github.com/denyherianto/niteni) — AI-powered code review powered by [Gemini CLI](https://github.com/gemini-cli-extensions/code-review)*';
 
 export async function runMergeRequestReview(): Promise<ReviewResult> {
   const errors = validateForMR();
@@ -94,21 +94,80 @@ export async function runMergeRequestReview(): Promise<ReviewResult> {
   console.log('Review completed.');
 
   if (config.review.postAsNote) {
+    // Clean up previous inline discussions and notes
     try {
-      const existingNotes = await gitlab.getMergeRequestNotes(mrIid);
-      for (const note of existingNotes) {
-        if (note.body?.includes(REVIEW_HEADER) && note.system === false) {
-          await gitlab.deleteMergeRequestNote(mrIid, note.id);
-          console.log(`Deleted previous review note #${note.id}`);
+      const discussions = await gitlab.getMergeRequestDiscussions(mrIid);
+      for (const discussion of discussions) {
+        const notes: any[] = discussion.notes || [];
+        const firstNote = notes[0];
+        if (firstNote && firstNote.body?.includes(REVIEW_HEADER) && !firstNote.system) {
+          try {
+            await gitlab.deleteMergeRequestDiscussionNote(mrIid, discussion.id, firstNote.id);
+            console.log(`Deleted previous review discussion ${discussion.id}`);
+          } catch {
+            // If discussion deletion fails, try as a regular note
+            try {
+              await gitlab.deleteMergeRequestNote(mrIid, firstNote.id);
+            } catch { /* ignore */ }
+          }
         }
       }
     } catch (err) {
-      console.warn('Could not clean up previous review notes:', (err as Error).message);
+      console.warn('Could not clean up previous review discussions:', (err as Error).message);
     }
 
-    const noteBody = `${REVIEW_HEADER}\n\n## Niteni - Code Review\n\n${reviewResult}${BOT_SIGNATURE}`;
+    // Parse findings and post inline comments
+    const findings = reviewer.parseFindings(reviewResult);
+    const diffRefs = mr.diff_refs;
+
+    if (diffRefs && findings.length > 0) {
+      let inlineCount = 0;
+      for (const finding of findings) {
+        if (!finding.file || finding.file === 'unknown' || !finding.line) continue;
+
+        const position: DiffPosition = {
+          base_sha: diffRefs.base_sha,
+          start_sha: diffRefs.start_sha,
+          head_sha: diffRefs.head_sha,
+          position_type: 'text',
+          new_path: finding.file,
+          old_path: finding.file,
+          new_line: finding.line,
+        };
+
+        let body = `${REVIEW_HEADER}\n\n**[${finding.severity}]** \`${finding.file}:${finding.line}\`\n\n`;
+
+        // Extract description without the suggestion block for the comment body
+        const descWithoutSuggestion = finding.description
+          .replace(/```suggestion\n[\s\S]*?```/, '')
+          .replace(/---\s*$/, '')
+          .trim();
+        body += `> ${descWithoutSuggestion}\n`;
+
+        if (finding.suggestion) {
+          body += `\n\`\`\`suggestion\n${finding.suggestion}\`\`\`\n`;
+        }
+
+        try {
+          await gitlab.postMergeRequestDiscussion(mrIid, body, position);
+          inlineCount++;
+        } catch (err) {
+          console.warn(`Could not post inline comment for ${finding.file}:${finding.line}:`, (err as Error).message);
+        }
+      }
+      console.log(`Posted ${inlineCount} inline comment(s).`);
+    }
+
+    // Post summary as a general MR note
+    const summaryMatch = reviewResult.match(/### Summary\s*\n([\s\S]*?)(?=\n### |$)/);
+    const summaryText = summaryMatch ? summaryMatch[1].trim() : reviewResult;
+    const findingsSummary = findings.length > 0
+      ? `\n\n**Findings:** ${findings.length} issue(s) posted as inline comments.`
+      : '';
+
+    const noteBody = `${REVIEW_HEADER}\n\n## Niteni - Code Review\n\n### Summary\n${summaryText}${findingsSummary}${BOT_SIGNATURE}`;
     await gitlab.postMergeRequestNote(mrIid, noteBody);
-    console.log('Review posted as MR note.');
+    console.log('Summary posted as MR note.');
   }
 
   const hasCritical = reviewer.hasCriticalFindings(reviewResult);

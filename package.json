@@ -45,7 +45,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://gitlab.com/anthropic-tools/niteni"
+    "url": "https://github.com/denyherianto/niteni"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

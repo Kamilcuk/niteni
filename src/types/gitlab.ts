@@ -9,6 +9,11 @@ export interface MergeRequest {
   title: string;
   source_branch: string;
   target_branch: string;
+  diff_refs?: {
+    base_sha: string;
+    head_sha: string;
+    start_sha: string;
+  };
   [key: string]: unknown;
 }
 
