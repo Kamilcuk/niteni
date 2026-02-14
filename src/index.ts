@@ -151,7 +151,7 @@ export async function runMergeRequestReview(): Promise<ReviewResult> {
 
         if (finding.suggestion) {
           const rationale = finding.rationale || 'Applying this suggestion addresses the issue described above.';
-          body += `\n**Why this change:** ${rationale}\n\`\`\`suggestion\n${finding.suggestion}\`\`\`\n`;
+          body += `\n**Suggestion:** ${rationale}\n\`\`\`suggestion\n${finding.suggestion}\`\`\`\n`;
         }
 
         // Try inline diff comment first, fall back to general discussion
