@@ -108,7 +108,7 @@ export class Reviewer {
 
   private isStructuredReview(output: string): boolean {
     return /###\s*(Summary|Findings)/i.test(output) ||
-           /\*\*\[(CRITICAL|HIGH|MEDIUM|LOW)\]\*\*/.test(output);
+           /\*\*\[?(CRITICAL|HIGH|MEDIUM|LOW)\]?\*\*/.test(output);
   }
 
   async reviewWithCodeReviewExtension(): Promise<string | null> {
@@ -344,7 +344,7 @@ export class Reviewer {
 
   parseFindings(reviewText: string): Finding[] {
     const findings: Finding[] = [];
-    const findingRegex = /\*\*\[(CRITICAL|HIGH|MEDIUM|LOW)\]\*\*\s*`([^`]+)`/g;
+    const findingRegex = /\*\*\[?(CRITICAL|HIGH|MEDIUM|LOW)\]?\*\*\s*`([^`]+)`/g;
     let match: RegExpExecArray | null;
 
     while ((match = findingRegex.exec(reviewText)) !== null) {
@@ -382,6 +382,6 @@ export class Reviewer {
   }
 
   hasCriticalFindings(reviewText: string): boolean {
-    return /\*\*\[CRITICAL\]\*\*/.test(reviewText);
+    return /\*\*\[?CRITICAL\]?\*\*/.test(reviewText);
   }
 }
