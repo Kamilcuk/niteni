@@ -5,38 +5,25 @@ import * as os from 'os';
 import * as https from 'https';
 import type { ReviewerOptions, FilterOptions, Finding, Severity } from './types';
 
-export const REVIEW_PROMPT = `You are a Principal Software Engineer performing a thorough code review.
+export const REVIEW_PROMPT = `You are a Principal Software Engineer. Review the code diff below and respond ONLY with the structured format shown. Do NOT include any thinking, planning, or conversational text. Do NOT attempt to modify files or run commands. Just analyze and respond.
 
-Analyze the following code diff and provide a structured review.
-
-## Review Guidelines
-
-1. **Summarize** the change's intent in 1-2 sentences
-2. **Prioritize** application code over test code
-3. **Classify** issues by severity:
-   - **CRITICAL**: Security vulnerabilities, data loss, logic failures
-   - **HIGH**: Performance bottlenecks, architectural violations, functional bugs
-   - **MEDIUM**: Input validation gaps, error handling issues, naming problems
-   - **LOW**: Documentation improvements, minor readability issues
+## Severity Levels
+- **CRITICAL**: Security vulnerabilities, data loss, logic failures
+- **HIGH**: Performance bottlenecks, architectural violations, functional bugs
+- **MEDIUM**: Input validation gaps, error handling issues, naming problems
+- **LOW**: Documentation improvements, minor readability issues
 
 ## Rules
-- Only comment on actual changed lines (lines starting with + or -)
-- Issues must demonstrate genuine bugs or significant improvements
-- Avoid procedural language ("check," "verify," "ensure")
+- Only comment on changed lines (+ or - lines in the diff)
 - Include precise line numbers and code suggestions
-- Skip stylistic nitpicks unrelated to execution or readability
-- Skip reviewing package-lock.json, yarn.lock, and minified files
+- Skip package-lock.json, yarn.lock, and minified files
 
-## Output Format
-
-Provide your review in the following structured format:
+## Required Output Format (follow EXACTLY)
 
 ### Summary
-[1-2 sentence summary of changes]
+[1-2 sentence summary of what the changes do]
 
 ### Findings
-
-For each issue found:
 
 **[SEVERITY]** \`filename:line_number\`
 > Description of the issue
@@ -46,7 +33,10 @@ For each issue found:
 
 ---
 
-If no significant issues are found, respond with:
+(Repeat for each finding. Separate findings with ---)
+
+If no issues found, respond with:
+
 ### Summary
 [summary]
 
@@ -116,24 +106,29 @@ export class Reviewer {
     }
   }
 
+  private isStructuredReview(output: string): boolean {
+    return /###\s*(Summary|Findings)/i.test(output) ||
+           /\*\*\[(CRITICAL|HIGH|MEDIUM|LOW)\]\*\*/.test(output);
+  }
+
   async reviewWithCodeReviewExtension(): Promise<string | null> {
     if (!this.ensureGeminiCli()) {
-      console.log('Gemini CLI not available, falling back to API mode...');
+      console.log('Gemini CLI not available, skipping extension strategy.');
       return null;
     }
 
     if (!this.isCodeReviewExtensionInstalled()) {
       const installed = this.installCodeReviewExtension();
       if (!installed) {
-        console.log('Code-review extension not available, falling back to API mode...');
+        console.log('Code-review extension not available, skipping.');
         return null;
       }
     }
 
-    console.log('Running Gemini CLI /code-review command...');
+    console.log('[Strategy 1] Running Gemini CLI /code-review...');
 
     try {
-      const result = spawnSync('gemini', ['-p', '/code-review'], {
+      const result = spawnSync('gemini', ['-p', '/code-review', '--sandbox'], {
         env: {
           ...process.env,
           GEMINI_API_KEY: this.geminiApiKey,
@@ -154,7 +149,12 @@ export class Reviewer {
         return null;
       }
 
-      console.log('Gemini CLI /code-review completed successfully.');
+      if (!this.isStructuredReview(output)) {
+        console.warn('Gemini CLI /code-review output is not in structured format, skipping.');
+        return null;
+      }
+
+      console.log('[Strategy 1] Gemini CLI /code-review completed successfully.');
       return output;
     } catch (err) {
       console.error('Gemini CLI /code-review execution failed:', (err as Error).message);
@@ -167,9 +167,12 @@ export class Reviewer {
       return null;
     }
 
+    console.log('[Strategy 2] Running Gemini CLI with direct prompt...');
+
     try {
       const result = spawnSync('gemini', [
         '-p', `${REVIEW_PROMPT}\n\nHere is the diff to review:\n\n${diffContent}`,
+        '--sandbox',
       ], {
         env: {
           ...process.env,
@@ -185,7 +188,16 @@ export class Reviewer {
         return null;
       }
 
-      return result.stdout.trim() || null;
+      const output = result.stdout.trim();
+      if (!output) return null;
+
+      if (!this.isStructuredReview(output)) {
+        console.warn('Gemini CLI output is not in structured format, skipping.');
+        return null;
+      }
+
+      console.log('[Strategy 2] Gemini CLI completed successfully.');
+      return output;
     } catch (err) {
       console.error('Gemini CLI prompt execution failed:', (err as Error).message);
       return null;
@@ -194,6 +206,11 @@ export class Reviewer {
 
   async reviewWithAPI(diffContent: string): Promise<string> {
     const body = JSON.stringify({
+      systemInstruction: {
+        parts: [{
+          text: 'You are a code review tool. Output ONLY structured markdown in the exact format requested. Never include thinking, planning, or conversational text.',
+        }],
+      },
       contents: [{
         parts: [{
           text: `${REVIEW_PROMPT}\n\nHere is the diff to review:\n\n${diffContent}`,
@@ -244,22 +261,32 @@ export class Reviewer {
       return 'No code changes to review.';
     }
 
-    // Strategy 1: Use /code-review extension command
+    // Strategy 1: Gemini REST API (most reliable — uses our structured prompt directly)
+    console.log('[Strategy 1] Trying Gemini REST API...');
+    try {
+      const apiResult = await this.reviewWithAPI(diffContent);
+      if (apiResult && this.isStructuredReview(apiResult)) {
+        console.log('[Strategy 1] Gemini REST API completed successfully.');
+        return apiResult;
+      }
+      console.warn('[Strategy 1] API response not in structured format.');
+    } catch (err) {
+      console.warn('[Strategy 1] Gemini REST API failed:', (err as Error).message);
+    }
+
+    // Strategy 2: Gemini CLI with /code-review extension
     const extensionResult = await this.reviewWithCodeReviewExtension();
     if (extensionResult) {
       return extensionResult;
     }
 
-    // Strategy 2: Use Gemini CLI with diff as prompt
-    console.log('Trying Gemini CLI with direct prompt...');
+    // Strategy 3: Gemini CLI with diff as direct prompt
     const cliResult = await this.reviewWithGeminiCLI(diffContent);
     if (cliResult) {
       return cliResult;
     }
 
-    // Strategy 3: Use Gemini REST API directly
-    console.log('Falling back to Gemini REST API...');
-    return this.reviewWithAPI(diffContent);
+    throw new Error('All review strategies failed. Check GEMINI_API_KEY and network connectivity.');
   }
 
   filterDiff(diffContent: string, { includePatterns, excludePatterns, maxDiffSize }: FilterOptions): string {
