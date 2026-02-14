@@ -157,17 +157,6 @@ export async function runMergeRequestReview(): Promise<ReviewResult> {
       }
       console.log(`Posted ${inlineCount} inline comment(s).`);
     }
-
-    // Post summary as a general MR note
-    const summaryMatch = reviewResult.match(/### Summary\s*\n([\s\S]*?)(?=\n### |$)/);
-    const summaryText = summaryMatch ? summaryMatch[1].trim() : reviewResult;
-    const findingsSummary = findings.length > 0
-      ? `\n\n**Findings:** ${findings.length} issue(s) posted as inline comments.`
-      : '';
-
-    const noteBody = `${REVIEW_HEADER}\n\n## Niteni - Code Review\n\n### Summary\n${summaryText}${findingsSummary}${BOT_SIGNATURE}`;
-    await gitlab.postMergeRequestNote(mrIid, noteBody);
-    console.log('Summary posted as MR note.');
   }
 
   const hasCritical = reviewer.hasCriticalFindings(reviewResult);
