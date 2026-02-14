@@ -43,7 +43,7 @@ In your GitLab project, go to **Settings > CI/CD > Variables** and add:
 ### 2. Add to your `.gitlab-ci.yml`
 
 ```yaml
-niteni:
+niteni-code-review:
   stage: review
   image: node:20-alpine
   rules:
