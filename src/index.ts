@@ -139,7 +139,7 @@ export async function runMergeRequestReview(): Promise<ReviewResult> {
         body += `> ${descWithoutSuggestion}\n`;
 
         if (finding.suggestion) {
-          body += `\n\`\`\`suggestion\n${finding.suggestion}\`\`\`\n`;
+          body += `\n**Suggested fix:**\n\`\`\`suggestion\n${finding.suggestion}\`\`\`\n`;
         }
 
         // Try inline diff comment first, fall back to general discussion
