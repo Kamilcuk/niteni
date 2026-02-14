@@ -129,17 +129,18 @@ export async function runMergeRequestReview(): Promise<ReviewResult> {
       for (const finding of findings) {
         if (!finding.file || finding.file === 'unknown' || !finding.line) continue;
 
-        let body = `${REVIEW_HEADER}\n\n**[${finding.severity}]** \`${finding.file}:${finding.line}\`\n\n`;
+        let body = `${REVIEW_HEADER}\n\n`;
+        body += `#### :warning: ${finding.severity} \u2014 \`${finding.file}:${finding.line}\`\n\n`;
 
         // Extract description without the suggestion block for the comment body
         const descWithoutSuggestion = finding.description
           .replace(/```suggestion\n[\s\S]*?```/, '')
           .replace(/---\s*$/, '')
           .trim();
-        body += `> ${descWithoutSuggestion}\n`;
+        body += `**Issue:** ${descWithoutSuggestion}\n`;
 
         if (finding.suggestion) {
-          body += `\n**Suggested fix:**\n\`\`\`suggestion\n${finding.suggestion}\`\`\`\n`;
+          body += `\n**Suggested fix:** _(click "Apply suggestion" to apply directly)_\n\`\`\`suggestion\n${finding.suggestion}\`\`\`\n`;
         }
 
         // Try inline diff comment first, fall back to general discussion
