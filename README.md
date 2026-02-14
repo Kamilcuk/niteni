@@ -49,8 +49,6 @@ niteni:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   before_script:
     - apk add --no-cache git curl bash
-    # Install Gemini CLI
-    - npm install -g @google/gemini-cli || true
     # Clone and build Niteni
     - git clone https://github.com/denyherianto/niteni.git /tmp/niteni
     - cd /tmp/niteni && npm ci && npm run build && npm link
@@ -247,7 +245,6 @@ Integrate "Niteni" — an AI-powered code review tool — into this GitLab repos
        - if: $CI_PIPELINE_SOURCE == "merge_request_event"
      before_script:
        - apk add --no-cache git curl bash
-       - npm install -g @google/gemini-cli || true
        - git clone https://github.com/denyherianto/niteni.git /tmp/niteni
        - cd /tmp/niteni && npm ci && npm run build && npm link
        - cd $CI_PROJECT_DIR

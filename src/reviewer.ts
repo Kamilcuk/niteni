@@ -72,6 +72,25 @@ export class Reviewer {
     }
   }
 
+  private installGeminiCli(): boolean {
+    try {
+      console.log('Installing Gemini CLI...');
+      execSync('npm install -g @google/gemini-cli', { stdio: 'pipe', timeout: 120000 });
+      console.log('Gemini CLI installed successfully.');
+      return true;
+    } catch (err) {
+      console.warn('Failed to install Gemini CLI:', (err as Error).message);
+      return false;
+    }
+  }
+
+  private ensureGeminiCli(): boolean {
+    if (this.isGeminiCliAvailable()) {
+      return true;
+    }
+    return this.installGeminiCli() && this.isGeminiCliAvailable();
+  }
+
   private isCodeReviewExtensionInstalled(): boolean {
     try {
       const home = os.homedir();
@@ -98,8 +117,8 @@ export class Reviewer {
   }
 
   async reviewWithCodeReviewExtension(): Promise<string | null> {
-    if (!this.isGeminiCliAvailable()) {
-      console.log('Gemini CLI not found, falling back to API mode...');
+    if (!this.ensureGeminiCli()) {
+      console.log('Gemini CLI not available, falling back to API mode...');
       return null;
     }
 
@@ -144,7 +163,7 @@ export class Reviewer {
   }
 
   async reviewWithGeminiCLI(diffContent: string): Promise<string | null> {
-    if (!this.isGeminiCliAvailable()) {
+    if (!this.ensureGeminiCli()) {
       return null;
     }
 

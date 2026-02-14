@@ -17,8 +17,6 @@ niteni:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   before_script:
     - apk add --no-cache git curl bash
-    # Install Gemini CLI (requires Node.js 18+)
-    - npm install -g @google/gemini-cli || npm install -g gemini-cli || true
     # Install dependencies and build
     - npm ci
     - npm run build
