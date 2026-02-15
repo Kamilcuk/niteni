@@ -10,7 +10,7 @@ variables:
 # Uses Gemini CLI /code-review extension
 # https://github.com/gemini-cli-extensions/code-review
 # ============================================
-niteni:
+niteni-code-reviews:
   stage: review
   image: $NODE_IMAGE
   rules:

@@ -1,7 +1,3 @@
-import { execSync, spawnSync } from 'child_process';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
 import * as https from 'https';
 import type { ReviewerOptions, FilterOptions, Finding, Severity } from './types';
 
@@ -54,160 +50,9 @@ export class Reviewer {
     this.model = model;
   }
 
-  private isGeminiCliAvailable(): boolean {
-    try {
-      execSync('which gemini', { stdio: 'pipe' });
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  private installGeminiCli(): boolean {
-    try {
-      console.log('Installing Gemini CLI...');
-      execSync('npm install -g @google/gemini-cli', { stdio: 'pipe', timeout: 120000 });
-      console.log('Gemini CLI installed successfully.');
-      return true;
-    } catch (err) {
-      console.warn('Failed to install Gemini CLI:', (err as Error).message);
-      return false;
-    }
-  }
-
-  private ensureGeminiCli(): boolean {
-    if (this.isGeminiCliAvailable()) {
-      return true;
-    }
-    return this.installGeminiCli() && this.isGeminiCliAvailable();
-  }
-
-  private isCodeReviewExtensionInstalled(): boolean {
-    try {
-      const home = os.homedir();
-      const extensionsDir = path.join(home, '.gemini', 'extensions', 'code-review');
-      return fs.existsSync(extensionsDir);
-    } catch {
-      return false;
-    }
-  }
-
-  private installCodeReviewExtension(): boolean {
-    try {
-      console.log('Installing Gemini CLI code-review extension...');
-      execSync(
-        'gemini extensions install https://github.com/gemini-cli-extensions/code-review',
-        { stdio: 'pipe', timeout: 60000 }
-      );
-      console.log('Code-review extension installed successfully.');
-      return true;
-    } catch (err) {
-      console.warn('Failed to install code-review extension:', (err as Error).message);
-      return false;
-    }
-  }
-
   private isStructuredReview(output: string): boolean {
     return /###\s*(Summary|Findings)/i.test(output) ||
            /\*\*\[?(CRITICAL|HIGH|MEDIUM|LOW)\]?\*\*/.test(output);
-  }
-
-  async reviewWithCodeReviewExtension(): Promise<string | null> {
-    if (!this.ensureGeminiCli()) {
-      console.log('Gemini CLI not available, skipping extension strategy.');
-      return null;
-    }
-
-    if (!this.isCodeReviewExtensionInstalled()) {
-      const installed = this.installCodeReviewExtension();
-      if (!installed) {
-        console.log('Code-review extension not available, skipping.');
-        return null;
-      }
-    }
-
-    console.log('[Strategy 1] Running Gemini CLI /code-review...');
-
-    try {
-      const result = spawnSync('gemini', ['-p', '/code-review', '--sandbox'], {
-        env: {
-          ...process.env,
-          GEMINI_API_KEY: this.geminiApiKey,
-        },
-        encoding: 'utf-8',
-        timeout: 180000,
-        maxBuffer: 10 * 1024 * 1024,
-      });
-
-      if (result.status !== 0) {
-        console.error('Gemini CLI /code-review error:', result.stderr);
-        return null;
-      }
-
-      const output = result.stdout.trim();
-      if (!output) {
-        console.warn('Gemini CLI /code-review returned empty output.');
-        return null;
-      }
-
-      if (!this.isStructuredReview(output)) {
-        console.warn('Gemini CLI /code-review output is not in structured format, skipping.');
-        return null;
-      }
-
-      console.log('[Strategy 1] Gemini CLI /code-review completed successfully.');
-      return output;
-    } catch (err) {
-      console.error('Gemini CLI /code-review execution failed:', (err as Error).message);
-      return null;
-    }
-  }
-
-  async reviewWithGeminiCLI(diffContent: string): Promise<string | null> {
-    if (!this.ensureGeminiCli()) {
-      return null;
-    }
-
-    console.log('[Strategy 2] Running Gemini CLI with direct prompt...');
-
-    const tmpFile = path.join(os.tmpdir(), `niteni-review-${process.pid}-${Date.now()}.txt`);
-    fs.writeFileSync(tmpFile, `${REVIEW_PROMPT}\n\nHere is the diff to review:\n\n${diffContent}`, 'utf-8');
-
-    try {
-      const result = spawnSync('gemini', [
-        '-p', `@${tmpFile}`,
-        '--sandbox',
-      ], {
-        env: {
-          ...process.env,
-          GEMINI_API_KEY: this.geminiApiKey,
-        },
-        encoding: 'utf-8',
-        timeout: 180000,
-        maxBuffer: 10 * 1024 * 1024,
-      });
-
-      if (result.status !== 0) {
-        console.error('Gemini CLI prompt error:', result.stderr);
-        return null;
-      }
-
-      const output = result.stdout.trim();
-      if (!output) return null;
-
-      if (!this.isStructuredReview(output)) {
-        console.warn('Gemini CLI output is not in structured format, skipping.');
-        return null;
-      }
-
-      console.log('[Strategy 2] Gemini CLI completed successfully.');
-      return output;
-    } catch (err) {
-      console.error('Gemini CLI prompt execution failed:', (err as Error).message);
-      return null;
-    } finally {
-      try { fs.unlinkSync(tmpFile); } catch { /* ignore cleanup errors */ }
-    }
   }
 
   async reviewWithAPI(diffContent: string): Promise<string> {
@@ -273,32 +118,14 @@ export class Reviewer {
       return 'No code changes to review.';
     }
 
-    // Strategy 1: Gemini REST API (most reliable — uses our structured prompt directly)
-    console.log('[Strategy 1] Trying Gemini REST API...');
-    try {
-      const apiResult = await this.reviewWithAPI(diffContent);
-      if (apiResult && this.isStructuredReview(apiResult)) {
-        console.log('[Strategy 1] Gemini REST API completed successfully.');
-        return apiResult;
-      }
-      console.warn('[Strategy 1] API response not in structured format.');
-    } catch (err) {
-      console.warn('[Strategy 1] Gemini REST API failed:', (err as Error).message);
+    console.log('Reviewing code changes via Gemini REST API...');
+    const apiResult = await this.reviewWithAPI(diffContent);
+    if (apiResult && this.isStructuredReview(apiResult)) {
+      console.log('Gemini REST API review completed successfully.');
+      return apiResult;
     }
 
-    // Strategy 2: Gemini CLI with /code-review extension
-    const extensionResult = await this.reviewWithCodeReviewExtension();
-    if (extensionResult) {
-      return extensionResult;
-    }
-
-    // Strategy 3: Gemini CLI with diff as direct prompt
-    const cliResult = await this.reviewWithGeminiCLI(diffContent);
-    if (cliResult) {
-      return cliResult;
-    }
-
-    throw new Error('All review strategies failed. Check GEMINI_API_KEY and network connectivity.');
+    throw new Error('Review failed: API response was empty or not in the expected structured format.');
   }
 
   filterDiff(diffContent: string, { includePatterns, excludePatterns, maxDiffSize }: FilterOptions): string {

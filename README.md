@@ -2,19 +2,13 @@
 
 > *Niteni* (Javanese: to observe carefully, to pay close attention)
 
-AI-powered code review for GitLab CI pipelines, powered by [Gemini CLI Code Review Extension](https://github.com/gemini-cli-extensions/code-review).
+AI-powered code review for GitLab CI pipelines, powered by the [Gemini REST API](https://ai.google.dev/gemini-api).
 
-Uses the Gemini CLI `/code-review` command to analyze code changes on your current branch for quality issues, then posts structured findings as GitLab MR notes.
+Analyzes code changes via the Gemini API with a structured review prompt, then posts severity-classified findings as GitLab MR notes.
 
 ## How It Works
 
-This package uses a **cascading review strategy**:
-
-1. **Gemini REST API** (preferred) — Calls the Gemini API directly with a structured prompt for reliable, formatted output
-2. **Gemini CLI `/code-review` extension** — Falls back to the CLI extension which runs `git diff` internally
-3. **Gemini CLI with direct prompt** — Final fallback passing the diff directly to `gemini -p`
-
-The extension is auto-installed if Gemini CLI is available but the extension is not yet present.
+Niteni calls the **Gemini REST API** directly with a structured prompt containing the diff. The API returns severity-classified findings in a consistent format, which Niteni then posts as inline comments on the merge request.
 
 ## Features
 
@@ -22,8 +16,6 @@ The extension is auto-installed if Gemini CLI is available but the extension is 
 - **Severity-based emojis** — :rotating_light: CRITICAL, :warning: HIGH, :large_blue_circle: MEDIUM, :information_source: LOW
 - **GitLab suggestion blocks** — One-click "Apply suggestion" for each code fix
 - **Rationale explanations** — Each suggestion includes why the change is recommended
-- Cascading fallback strategy (REST API -> CLI extension -> CLI prompt)
-- Auto-installs the Gemini CLI code-review extension when available
 - Automatic cleanup of previous review comments on re-review
 - Configurable file filtering (include/exclude patterns)
 - Diff size limits to manage token usage
@@ -61,41 +53,6 @@ niteni-code-review:
 
 > **Note:** Do NOT re-declare `GEMINI_API_KEY` or `GITLAB_TOKEN` in the job `variables:` section — this causes a circular reference. Project-level CI/CD variables are automatically available in all jobs.
 
-### 3. Or install as a dependency
-
-```bash
-npm install niteni
-```
-
-```typescript
-import { runMergeRequestReview, Reviewer } from 'niteni';
-
-// Run full MR review (requires env vars)
-const result = await runMergeRequestReview();
-
-// Or use the Reviewer class directly
-const reviewer = new Reviewer({ geminiApiKey: 'your-key' });
-const review = await reviewer.review(diffContent);
-```
-
-## Gemini CLI /code-review Extension
-
-This package leverages the [code-review extension](https://github.com/gemini-cli-extensions/code-review) for Gemini CLI.
-
-### What the extension does
-
-The `/code-review` command:
-- Runs `git diff -U5 --merge-base origin/HEAD` to retrieve changes on the current branch
-- Analyzes diffs as a Principal Software Engineer
-- Classifies issues by severity (CRITICAL, HIGH, MEDIUM, LOW)
-- Only comments on actual changed lines (`+` or `-`)
-- Provides file-by-file findings with line numbers and code suggestions
-
-### Prerequisites
-
-- [Gemini CLI](https://github.com/anthropics/gemini-cli) v0.4.0 or newer
-- A valid `GEMINI_API_KEY`
-
 ## Configuration
 
 All configuration is via environment variables:
@@ -113,22 +70,6 @@ All configuration is via environment variables:
 | `REVIEW_EXCLUDE_PATTERNS` | `package-lock.json,yarn.lock,*.min.js,*.min.css` | File patterns to exclude |
 | `REVIEW_POST_AS_NOTE` | `true` | Post review as MR note |
 | `REVIEW_FAIL_ON_CRITICAL` | `false` | Fail pipeline on CRITICAL findings |
-
-## CLI Usage
-
-```bash
-# Review a GitLab merge request
-niteni --mode mr
-
-# Review local diff against target branch
-GEMINI_API_KEY=your-key niteni --mode diff
-
-# Run simulation with sample diff and mock review
-niteni --mode simulate
-
-# Show help
-niteni --help
-```
 
 ## Review Output
 
