@@ -96,19 +96,6 @@ The `/code-review` command:
 - [Gemini CLI](https://github.com/anthropics/gemini-cli) v0.4.0 or newer
 - A valid `GEMINI_API_KEY`
 
-### Manual extension installation
-
-```bash
-gemini extensions install https://github.com/gemini-cli-extensions/code-review
-```
-
-Once installed, you can use it locally:
-
-```bash
-# Run /code-review on your current branch
-gemini -p /code-review
-```
-
 ## Configuration
 
 All configuration is via environment variables:
