@@ -129,7 +129,8 @@ export class Reviewer {
     console.log('[Strategy 1] Running Gemini CLI /code-review...');
 
     try {
-      const result = spawnSync('gemini', ['-p', '/code-review'], {
+      const result = spawnSync('gemini', [], {
+        input: '/code-review\n',
         env: {
           ...process.env,
           GEMINI_API_KEY: this.geminiApiKey,
