@@ -87,6 +87,11 @@ export async function runMergeRequestReview(): Promise<ReviewResult> {
         const notes: any[] = discussion.notes || [];
         const firstNote = notes[0];
         if (firstNote && firstNote.body?.includes(REVIEW_HEADER) && !firstNote.system) {
+          // Keep comments that were resolved (author fixed / applied suggestion)
+          if (firstNote.resolved || discussion.resolved) {
+            console.log(`Keeping resolved discussion ${discussion.id}`);
+            continue;
+          }
           try {
             await gitlab.deleteMergeRequestDiscussionNote(mrIid, discussion.id, firstNote.id);
             console.log(`Deleted previous review discussion ${discussion.id}`);
