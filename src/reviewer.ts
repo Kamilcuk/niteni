@@ -150,11 +150,6 @@ export class Reviewer {
         return null;
       }
 
-      if (!this.isStructuredReview(output)) {
-        console.warn('Gemini CLI /code-review output is not in structured format, skipping.');
-        return null;
-      }
-
       console.log('[Strategy 1] Gemini CLI /code-review completed successfully.');
       return output;
     } catch (err) {
