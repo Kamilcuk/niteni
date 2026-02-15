@@ -49,7 +49,7 @@ export class Reviewer {
   private geminiApiKey: string;
   private model: string;
 
-  constructor({ geminiApiKey, model = 'gemini-2.5-pro' }: ReviewerOptions) {
+  constructor({ geminiApiKey, model = 'gemini-3-pro-preview' }: ReviewerOptions) {
     this.geminiApiKey = geminiApiKey;
     this.model = model;
   }

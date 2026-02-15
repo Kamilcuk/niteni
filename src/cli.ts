@@ -32,7 +32,7 @@ Environment Variables:
   CI_PROJECT_ID                 GitLab project ID (required for MR mode)
   CI_MERGE_REQUEST_IID          Merge request IID (required for MR mode)
   CI_MERGE_REQUEST_TARGET_BRANCH_NAME  Target branch (default: main)
-  GEMINI_MODEL                  Gemini model to use (default: gemini-2.5-pro)
+  GEMINI_MODEL                  Gemini model to use (default: gemini-3-pro-preview)
   REVIEW_MAX_FILES              Max files to review (default: 50)
   REVIEW_MAX_DIFF_SIZE          Max diff size in chars (default: 100000)
   REVIEW_INCLUDE_PATTERNS       Comma-separated file patterns to include

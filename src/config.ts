@@ -31,7 +31,7 @@ export const config: AppConfig = {
 
   gemini: {
     apiKey: env.GEMINI_API_KEY || '',
-    model: env.GEMINI_MODEL || 'gemini-2.5-pro',
+    model: env.GEMINI_MODEL || 'gemini-3-pro-preview',
   },
 
   review: {

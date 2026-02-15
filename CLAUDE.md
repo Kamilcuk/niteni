@@ -63,7 +63,7 @@ Findings are parsed with regex from structured markdown. Each finding has: sever
 |----------|---------|---------|
 | `GEMINI_API_KEY` | Required | Google Gemini API key |
 | `GITLAB_TOKEN` | `$CI_JOB_TOKEN` | GitLab auth token |
-| `GEMINI_MODEL` | `gemini-2.5-pro` | Model for REST API |
+| `GEMINI_MODEL` | `gemini-3-pro-preview` | Model for REST API |
 | `REVIEW_MAX_FILES` | `50` | Max files to review |
 | `REVIEW_MAX_DIFF_SIZE` | `100000` | Max diff size in chars |
 | `REVIEW_INCLUDE_PATTERNS` | — | Comma-separated glob patterns to include |

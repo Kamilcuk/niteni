@@ -119,7 +119,7 @@ All configuration is via environment variables:
 | `GITLAB_TOKEN` | `$CI_JOB_TOKEN` | GitLab access token |
 | `CI_PROJECT_ID` | - | GitLab project ID (auto-set in CI) |
 | `CI_MERGE_REQUEST_IID` | - | MR IID (auto-set in CI) |
-| `GEMINI_MODEL` | `gemini-2.5-pro` | Gemini model (used for API fallback) |
+| `GEMINI_MODEL` | `gemini-3-pro-preview` | Gemini model (used for API fallback) |
 | `REVIEW_MAX_FILES` | `50` | Max files to review |
 | `REVIEW_MAX_DIFF_SIZE` | `100000` | Max diff size (characters) |
 | `REVIEW_INCLUDE_PATTERNS` | - | File patterns to include (comma-separated) |
@@ -255,7 +255,7 @@ Integrate "Niteni" — an AI-powered code review tool — into this GitLab repos
    - GITLAB_TOKEN — GitLab Personal Access Token with `api` scope
 
 3. Optional environment variables (these CAN be added to the job `variables:` section since they are plain values, not references):
-   - GEMINI_MODEL (default: gemini-2.5-pro) — Gemini model for API fallback
+   - GEMINI_MODEL (default: gemini-3-pro-preview) — Gemini model for API fallback
    - REVIEW_MAX_FILES (default: 50) — Max files to include in the review
    - REVIEW_MAX_DIFF_SIZE (default: 100000) — Max diff size in characters
    - REVIEW_INCLUDE_PATTERNS — Comma-separated glob patterns to include (e.g. "src/**,lib/**")
