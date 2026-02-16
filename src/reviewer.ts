@@ -126,10 +126,14 @@ export class Reviewer {
               }
 
               const text = content.parts[0].text;
-              const cleanedText = text.replace(/^```json\n|\n```$/g, '');
-              const result: StructuredReviewResponse = JSON.parse(cleanedText);
+              const cleanedText = text.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+              const result = JSON.parse(cleanedText);
 
-              resolve(result);
+              if (!result.findings || !Array.isArray(result.findings)) {
+                throw new Error('Invalid response format: findings array is missing');
+              }
+
+              resolve(result as StructuredReviewResponse);
             } else if (parsed.error) {
               reject(new Error(`Gemini API error: ${parsed.error.message}`));
             } else {
@@ -211,6 +215,6 @@ export class Reviewer {
   }
 
   hasCriticalFindings(findings: Finding[]): boolean {
-    return findings.some(f => f.severity === 'CRITICAL');
+    return findings.some(f => f.severity.toUpperCase() === 'CRITICAL');
   }
 }
