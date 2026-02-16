@@ -4,11 +4,11 @@
 
 AI-powered code review for GitLab CI pipelines, powered by the [Gemini REST API](https://ai.google.dev/gemini-api).
 
-Analyzes code changes via the Gemini API with a structured review prompt, then posts severity-classified findings as GitLab MR notes.
+Analyzes code changes via the Gemini API with [structured output](https://ai.google.dev/gemini-api/docs/structured-output), then posts severity-classified findings as GitLab MR notes.
 
 ## How It Works
 
-Niteni calls the **Gemini REST API** directly with a structured prompt containing the diff. The API returns severity-classified findings in a consistent format, which Niteni then posts as inline comments on the merge request.
+Niteni calls the **Gemini REST API** with structured output (`responseSchema` + `responseMimeType: "application/json"`) to get typed JSON findings directly — no regex parsing needed. Each finding includes severity, file, line, description, suggestion, and rationale, which Niteni posts as inline comments on the merge request.
 
 ## Features
 
@@ -63,7 +63,7 @@ All configuration is via environment variables:
 | `GITLAB_TOKEN` | `$CI_JOB_TOKEN` | GitLab access token |
 | `CI_PROJECT_ID` | - | GitLab project ID (auto-set in CI) |
 | `CI_MERGE_REQUEST_IID` | - | MR IID (auto-set in CI) |
-| `GEMINI_MODEL` | `gemini-3-pro-preview` | Gemini model (used for API fallback) |
+| `GEMINI_MODEL` | `gemini-3-pro-preview` | Gemini model for review |
 | `REVIEW_MAX_FILES` | `50` | Max files to review |
 | `REVIEW_MAX_DIFF_SIZE` | `100000` | Max diff size (characters) |
 | `REVIEW_INCLUDE_PATTERNS` | - | File patterns to include (comma-separated) |
@@ -131,11 +131,11 @@ niteni/
 │   │   ├── index.ts          # Barrel export for all types
 │   │   ├── config.ts         # AppConfig, GitLabConfig, GeminiConfig, ReviewConfig
 │   │   ├── gitlab.ts         # MergeRequest, MergeRequestNote, DiffPosition, etc.
-│   │   └── reviewer.ts       # Severity, Finding, ReviewerOptions, FilterOptions
+│   │   └── reviewer.ts       # Severity, Finding, StructuredReviewResponse, ReviewResult
 │   ├── index.ts              # Main module & orchestration
 │   ├── cli.ts                # CLI entry point
 │   ├── simulate.ts           # Simulation mode with mock data
-│   ├── reviewer.ts           # Gemini CLI /code-review + fallback logic
+│   ├── reviewer.ts           # Gemini structured output review logic
 │   ├── gitlab-api.ts         # GitLab API client
 │   └── config.ts             # Configuration values
 ├── dist/                     # Compiled output (generated)
@@ -153,7 +153,7 @@ niteni/
 Copy the prompt below into your AI coding tool (Claude Code, Cursor, GitHub Copilot, Windsurf, etc.) to integrate Niteni into your GitLab repository:
 
 ```
-Integrate "Niteni" — an AI-powered code review tool — into this GitLab repository. Niteni uses the Gemini CLI /code-review extension to automatically review merge request diffs and post findings as MR notes.
+Integrate "Niteni" — an AI-powered code review tool — into this GitLab repository. Niteni uses the Gemini REST API with structured output to automatically review merge request diffs and post findings as MR notes.
 
 ## Steps
 
@@ -183,7 +183,7 @@ Integrate "Niteni" — an AI-powered code review tool — into this GitLab repos
    - GITLAB_TOKEN — GitLab Personal Access Token with `api` scope
 
 3. Optional environment variables (these CAN be added to the job `variables:` section since they are plain values, not references):
-   - GEMINI_MODEL (default: gemini-3-pro-preview) — Gemini model for API fallback
+   - GEMINI_MODEL (default: gemini-3-pro-preview) — Gemini model for review
    - REVIEW_MAX_FILES (default: 50) — Max files to include in the review
    - REVIEW_MAX_DIFF_SIZE (default: 100000) — Max diff size in characters
    - REVIEW_INCLUDE_PATTERNS — Comma-separated glob patterns to include (e.g. "src/**,lib/**")
