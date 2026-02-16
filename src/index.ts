@@ -158,113 +158,112 @@ export async function runMergeRequestReview(): Promise<ReviewResult> {
 
         if (finding.suggestion) {
           const rationale = finding.rationale || 'Applying this suggestion addresses the issue described above.';
-body += `**Issue:** ${finding.description}\n`;
+          body += `**Issue:** ${finding.description}\n`;
 
-if (finding.rationale) {
-  body += `\n**Rationale:** ${finding.rationale}\n`;
-}
+          if (finding.rationale) {
+            body += `\n**Rationale:** ${finding.rationale}\n`;
+          }
 
-if (finding.suggestion) {
-  body += `\n**Suggestion:**\n```suggestion\n${finding.suggestion}\n```\n`;
-}
-        }
+          if (finding.suggestion) {
+            body += `\n**Suggestion:**\n\`\`\`suggestion\n${finding.suggestion}\n\`\`\`\n`;
+          }
 
-        // Try inline diff comment first, fall back to general discussion
-        let posted = false;
-        if (diffRefs) {
-          const position: DiffPosition = {
-            base_sha: diffRefs.base_sha,
-            start_sha: diffRefs.start_sha,
-            head_sha: diffRefs.head_sha,
-            position_type: 'text',
-            new_path: finding.file,
-            old_path: finding.file,
-            new_line: finding.line,
-          };
+          // Try inline diff comment first, fall back to general discussion
+          let posted = false;
+          if (diffRefs) {
+            const position: DiffPosition = {
+              base_sha: diffRefs.base_sha,
+              start_sha: diffRefs.start_sha,
+              head_sha: diffRefs.head_sha,
+              position_type: 'text',
+              new_path: finding.file,
+              old_path: finding.file,
+              new_line: finding.line,
+            };
 
-          try {
-            await gitlab.postMergeRequestDiscussion(mrIid, body, position);
-            posted = true;
-            inlineCount++;
-          } catch (err) {
-            console.warn(`Inline comment failed for ${finding.file}:${finding.line}: ${(err as Error).message}`);
+            try {
+              await gitlab.postMergeRequestDiscussion(mrIid, body, position);
+              posted = true;
+              inlineCount++;
+            } catch (err) {
+              console.warn(`Inline comment failed for ${finding.file}:${finding.line}: ${(err as Error).message}`);
+            }
+          }
+
+          // Fallback: post as general discussion without position
+          if (!posted) {
+            try {
+              await gitlab.postMergeRequestDiscussion(mrIid, body);
+              inlineCount++;
+              console.log(`Posted ${finding.file}:${finding.line} as general discussion (fallback).`);
+            } catch (err) {
+              console.warn(`Could not post discussion for ${finding.file}:${finding.line}:`, (err as Error).message);
+            }
           }
         }
-
-        // Fallback: post as general discussion without position
-        if (!posted) {
-          try {
-            await gitlab.postMergeRequestDiscussion(mrIid, body);
-            inlineCount++;
-            console.log(`Posted ${finding.file}:${finding.line} as general discussion (fallback).`);
-          } catch (err) {
-            console.warn(`Could not post discussion for ${finding.file}:${finding.line}:`, (err as Error).message);
-          }
-        }
+        console.log(`Posted ${inlineCount} comment(s).`);
       }
-      console.log(`Posted ${inlineCount} comment(s).`);
     }
+
+    const hasCritical = reviewer.hasCriticalFindings(findings);
+    if (hasCritical) {
+      console.warn('CRITICAL issues found in the review!');
+    }
+
+    return { summary, findings, hasCritical };
   }
 
-  const hasCritical = reviewer.hasCriticalFindings(findings);
-  if (hasCritical) {
-    console.warn('CRITICAL issues found in the review!');
+  export async function runDiffReview(): Promise<ReviewResult> {
+    const errors = validate();
+    if (errors.length > 0) {
+      console.error('Configuration errors:');
+      errors.forEach(e => console.error(`  - ${e}`));
+      process.exit(1);
+    }
+
+    const reviewer = new Reviewer({
+      geminiApiKey: config.gemini.apiKey,
+      model: config.gemini.model,
+    });
+
+    const targetBranch = config.gitlab.targetBranch;
+    console.log(`Getting diff against ${targetBranch}...`);
+
+    let diffContent: string;
+    try {
+      diffContent = execFileSync(
+        'git', ['diff', '-U5', '--merge-base', `origin/${targetBranch}`],
+        { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 }
+      );
+    } catch {
+      diffContent = execFileSync(
+        'git', ['diff', `origin/${targetBranch}...HEAD`],
+        { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 }
+      );
+    }
+
+    diffContent = reviewer.filterDiff(diffContent, {
+      includePatterns: config.review.includePatterns,
+      excludePatterns: config.review.excludePatterns,
+      maxDiffSize: config.review.maxDiffSize,
+    });
+
+    if (!diffContent.trim()) {
+      console.log('No changes to review.');
+      return { summary: 'No changes to review.', findings: [], hasCritical: false };
+    }
+
+    console.log(`Diff size: ${diffContent.length} characters`);
+    console.log('Running Gemini code review...');
+
+    const reviewResponse = await reviewer.review(diffContent);
+    const { summary, findings } = reviewResponse;
+
+    console.log('\n' + formatFindingsAsMarkdown(summary, findings));
+
+    return {
+      summary,
+      findings,
+      hasCritical: reviewer.hasCriticalFindings(findings),
+    };
   }
-
-  return { summary, findings, hasCritical };
-}
-
-export async function runDiffReview(): Promise<ReviewResult> {
-  const errors = validate();
-  if (errors.length > 0) {
-    console.error('Configuration errors:');
-    errors.forEach(e => console.error(`  - ${e}`));
-    process.exit(1);
-  }
-
-  const reviewer = new Reviewer({
-    geminiApiKey: config.gemini.apiKey,
-    model: config.gemini.model,
-  });
-
-  const targetBranch = config.gitlab.targetBranch;
-  console.log(`Getting diff against ${targetBranch}...`);
-
-  let diffContent: string;
-  try {
-    diffContent = execFileSync(
-      'git', ['diff', '-U5', '--merge-base', `origin/${targetBranch}`],
-      { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 }
-    );
-  } catch {
-    diffContent = execFileSync(
-      'git', ['diff', `origin/${targetBranch}...HEAD`],
-      { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 }
-    );
-  }
-
-  diffContent = reviewer.filterDiff(diffContent, {
-    includePatterns: config.review.includePatterns,
-    excludePatterns: config.review.excludePatterns,
-    maxDiffSize: config.review.maxDiffSize,
-  });
-
-  if (!diffContent.trim()) {
-    console.log('No changes to review.');
-    return { summary: 'No changes to review.', findings: [], hasCritical: false };
-  }
-
-  console.log(`Diff size: ${diffContent.length} characters`);
-  console.log('Running Gemini code review...');
-
-  const reviewResponse = await reviewer.review(diffContent);
-  const { summary, findings } = reviewResponse;
-
-  console.log('\n' + formatFindingsAsMarkdown(summary, findings));
-
-  return {
-    summary,
-    findings,
-    hasCritical: reviewer.hasCriticalFindings(findings),
-  };
-}
