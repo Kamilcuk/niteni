@@ -58,12 +58,12 @@ niteni-review:
 | `GOOGLE_PROJECT_ID`| - | GCP Project ID (Vertex AI) |
 | `GOOGLE_REGION` | `us-central1`| GCP Region (Vertex AI) |
 | `GITLAB_TOKEN` | - | GitLab access token |
-| `GEMINI_MODEL` | `gemini-1.5-pro` | Gemini model to use |
+| `GEMINI_MODEL` | `gemini-3-flash-preview` | Gemini model to use |
 | `REVIEW_MAX_FILES` | `50` | Max files to review |
 | `REVIEW_MAX_DIFF_SIZE` | `100000` | Max diff size (characters) |
 | `REVIEW_INCLUDE_PATTERNS` | - | Patterns to include (comma-separated) |
 | `REVIEW_EXCLUDE_PATTERNS` | `package-lock.json,yarn.lock,*.min.js,*.min.css` | Patterns to exclude |
-| `REVIEW_FAIL_ON_CRITICAL` | `false` | Fail pipeline on CRITICAL findings |
+| `REVIEW_FAIL_ON_CRITICAL` | `true` | Fail pipeline on CRITICAL findings |
 
 ## Local Development
 

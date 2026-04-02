@@ -46,7 +46,7 @@ export class Reviewer {
   private model: string;
   private auth?: GoogleAuth;
 
-  constructor({ geminiApiKey, vertexAI, model = 'gemini-1.5-pro' }: ReviewerOptions) {
+  constructor({ geminiApiKey, vertexAI, model = 'gemini-3-flash-preview' }: ReviewerOptions) {
     this.geminiApiKey = geminiApiKey;
     this.vertexAI = vertexAI;
     this.model = model;

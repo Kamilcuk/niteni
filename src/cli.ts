@@ -32,13 +32,13 @@ Environment Variables:
   CI_PROJECT_ID                 GitLab project ID (required for MR mode)
   CI_MERGE_REQUEST_IID          Merge request IID (required for MR mode)
   CI_MERGE_REQUEST_TARGET_BRANCH_NAME  Target branch (default: main)
-  GEMINI_MODEL                  Gemini model to use (default: gemini-3-pro-preview)
+  GEMINI_MODEL                  Gemini model to use (default: gemini-3-flash-preview)
   REVIEW_MAX_FILES              Max files to review (default: 50)
   REVIEW_MAX_DIFF_SIZE          Max diff size in chars (default: 100000)
   REVIEW_INCLUDE_PATTERNS       Comma-separated file patterns to include
   REVIEW_EXCLUDE_PATTERNS       Comma-separated file patterns to exclude
   REVIEW_POST_AS_NOTE           Post review as MR note (default: true)
-  REVIEW_FAIL_ON_CRITICAL       Exit with error on CRITICAL findings (default: false)
+  REVIEW_FAIL_ON_CRITICAL       Exit with error on CRITICAL findings (default: true)
 
 Examples:
   # Run simulation to see sample output

@@ -31,7 +31,7 @@ export const config: AppConfig = {
 
   gemini: {
     apiKey: env.GOOGLE_API_KEY || env.GEMINI_API_KEY || '',
-    model: env.GEMINI_MODEL || 'gemini-1.5-pro',
+    model: env.GEMINI_MODEL || 'gemini-3-flash-preview',
   },
 
   vertexai: {
@@ -47,7 +47,7 @@ export const config: AppConfig = {
     includePatterns: env.REVIEW_INCLUDE_PATTERNS || '',
     excludePatterns: env.REVIEW_EXCLUDE_PATTERNS || 'package-lock.json,yarn.lock,*.min.js,*.min.css',
     postAsNote: env.REVIEW_POST_AS_NOTE !== 'false',
-    failOnCritical: env.REVIEW_FAIL_ON_CRITICAL === 'true',
+    failOnCritical: env.REVIEW_FAIL_ON_CRITICAL !== 'false', // Default to true
   },
 };
 
