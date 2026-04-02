@@ -1,7 +1,7 @@
 {
   "name": "niteni",
   "version": "1.0.0",
-  "description": "AI-powered code review for GitLab CI — observes your diffs with careful attention using Gemini CLI",
+  "description": "AI-powered code review for GitLab CI",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
@@ -9,46 +9,17 @@
   },
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch",
     "review": "ts-node src/cli.ts",
     "review:mr": "ts-node src/cli.ts --mode mr",
     "review:diff": "ts-node src/cli.ts --mode diff",
-    "review:simulate": "ts-node src/cli.ts --mode simulate",
-    "simulate": "node dist/cli.js --mode simulate",
-    "lint": "eslint src/",
-    "test": "node --test dist/**/*.test.js",
-    "prepublishOnly": "npm run build"
+    "test": "node --test dist/**/*.test.js"
   },
-  "keywords": [
-    "niteni",
-    "code-review",
-    "gitlab",
-    "gemini",
-    "gemini-cli",
-    "ci-cd",
-    "merge-request",
-    "automated-review",
-    "typescript"
-  ],
-  "author": "Deny Herianto",
-  "license": "MIT",
-  "engines": {
-    "node": ">=18.0.0"
-  },
-  "files": [
-    "dist/",
-    "scripts/",
-    "README.md"
-  ],
-  "publishConfig": {
-    "registry": "https://gitlab.com/api/v4/projects/${CI_PROJECT_ID}/packages/npm/"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/denyherianto/niteni"
+  "dependencies": {
+    "google-auth-library": "9.6.3"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "typescript": "^5.5.0"
+    "@types/node": "20.11.0",
+    "typescript": "5.3.3",
+    "ts-node": "10.9.2"
   }
 }

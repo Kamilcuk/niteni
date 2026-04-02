@@ -14,6 +14,7 @@ export type {
   AppConfig,
   GitLabConfig,
   GeminiConfig,
+  VertexAIConfig,
   ReviewConfig,
   GitLabAPIOptions,
   MergeRequest,
@@ -22,6 +23,7 @@ export type {
   MergeRequestNote,
   DiffPosition,
   Severity,
+  VertexAIOptions,
   ReviewerOptions,
   FilterOptions,
   Finding,
@@ -77,6 +79,7 @@ export async function runMergeRequestReview(): Promise<ReviewResult> {
   const reviewer = new Reviewer({
     geminiApiKey: config.gemini.apiKey,
     model: config.gemini.model,
+    vertexAI: config.vertexai.projectId ? config.vertexai : undefined,
   });
 
   const mrIid = config.gitlab.mrIid;
@@ -220,6 +223,7 @@ export async function runDiffReview(): Promise<ReviewResult> {
   const reviewer = new Reviewer({
     geminiApiKey: config.gemini.apiKey,
     model: config.gemini.model,
+    vertexAI: config.vertexai.projectId ? config.vertexai : undefined,
   });
 
   const targetBranch = config.gitlab.targetBranch;

@@ -1,6 +1,7 @@
 export type {
   GitLabConfig,
   GeminiConfig,
+  VertexAIConfig,
   ReviewConfig,
   AppConfig,
 } from './config';
@@ -16,6 +17,7 @@ export type {
 
 export type {
   Severity,
+  VertexAIOptions,
   ReviewerOptions,
   FilterOptions,
   Finding,

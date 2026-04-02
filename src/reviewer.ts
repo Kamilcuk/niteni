@@ -1,5 +1,6 @@
 import * as https from 'https';
-import type { ReviewerOptions, FilterOptions, Finding, StructuredReviewResponse } from './types';
+import { GoogleAuth } from 'google-auth-library';
+import type { ReviewerOptions, FilterOptions, Finding, StructuredReviewResponse, VertexAIOptions } from './types';
 
 export const REVIEW_PROMPT = `You are a Principal Software Engineer performing a code review.
 
@@ -19,41 +20,18 @@ export const REVIEW_PROMPT = `You are a Principal Software Engineer performing a
 const RESPONSE_SCHEMA = {
   type: 'OBJECT',
   properties: {
-    summary: {
-      type: 'STRING',
-      description: '1-2 sentence summary of what the code changes do',
-    },
+    summary: { type: 'STRING' },
     findings: {
       type: 'ARRAY',
-      description: 'List of code review findings. Empty array if no issues found.',
       items: {
         type: 'OBJECT',
         properties: {
-          severity: {
-            type: 'STRING',
-            enum: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'],
-            description: 'Severity level of the finding',
-          },
-          file: {
-            type: 'STRING',
-            description: 'File path where the issue is found',
-          },
-          line: {
-            type: 'INTEGER',
-            description: 'Line number where the issue is found',
-          },
-          description: {
-            type: 'STRING',
-            description: 'Description of the issue',
-          },
-          suggestion: {
-            type: 'STRING',
-            description: 'Suggested code fix',
-          },
-          rationale: {
-            type: 'STRING',
-            description: 'Brief explanation of why the suggested fix resolves this issue',
-          },
+          severity: { type: 'STRING', enum: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] },
+          file: { type: 'STRING' },
+          line: { type: 'INTEGER' },
+          description: { type: 'STRING' },
+          suggestion: { type: 'STRING' },
+          rationale: { type: 'STRING' },
         },
         required: ['severity', 'file', 'line', 'description'],
       },
@@ -63,88 +41,78 @@ const RESPONSE_SCHEMA = {
 };
 
 export class Reviewer {
-  private geminiApiKey: string;
+  private geminiApiKey?: string;
+  private vertexAI?: VertexAIOptions;
   private model: string;
+  private auth?: GoogleAuth;
 
-  constructor({ geminiApiKey, model = 'gemini-3-pro-preview' }: ReviewerOptions) {
+  constructor({ geminiApiKey, vertexAI, model = 'gemini-1.5-pro' }: ReviewerOptions) {
     this.geminiApiKey = geminiApiKey;
+    this.vertexAI = vertexAI;
     this.model = model;
+    
+    if (this.vertexAI) {
+      this.auth = new GoogleAuth({
+        scopes: 'https://www.googleapis.com/auth/cloud-platform',
+      });
+    }
   }
 
   async reviewWithAPI(diffContent: string): Promise<StructuredReviewResponse> {
-    if (!/^[a-zA-Z0-9._-]+$/.test(this.model)) {
-      throw new Error(`Invalid model name: ${this.model}`);
-    }
-
     const body = JSON.stringify({
-      systemInstruction: {
-        parts: [{
-          text: 'You are a code review tool. Analyze the diff and return structured findings.',
-        }],
-      },
       contents: [{
-        parts: [{
-          text: `${REVIEW_PROMPT}\n\nHere is the diff to review:\n\n${diffContent}`,
-        }],
+        parts: [{ text: `${REVIEW_PROMPT}\n\nHere is the diff to review:\n\n${diffContent}` }],
       }],
+      systemInstruction: {
+        parts: [{ text: 'You are a code review tool. Return ONLY structured JSON findings.' }],
+      },
       generationConfig: {
         temperature: 0.2,
-        maxOutputTokens: 65536,
         responseMimeType: 'application/json',
         responseSchema: RESPONSE_SCHEMA,
       },
     });
 
+    let hostname: string;
+    let path: string;
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Content-Length': String(Buffer.byteLength(body)),
+    };
+
+    if (this.vertexAI) {
+      const { projectId, region } = this.vertexAI;
+      const client = await this.auth!.getClient();
+      const tokenResponse = await client.getAccessToken();
+      const token = tokenResponse.token;
+
+      hostname = `${region}-aiplatform.googleapis.com`;
+      path = `/v1/projects/${projectId}/locations/${region}/publishers/google/models/${this.model}:generateContent`;
+      headers['Authorization'] = `Bearer ${token}`;
+    } else {
+      hostname = 'generativelanguage.googleapis.com';
+      path = `/v1beta/models/${this.model}:generateContent?key=${this.geminiApiKey}`;
+    }
+
     return new Promise((resolve, reject) => {
-      const req = https.request({
-        hostname: 'generativelanguage.googleapis.com',
-        path: `/v1beta/models/${this.model}:generateContent`,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(body),
-          'x-goog-api-key': this.geminiApiKey,
-        },
-        rejectUnauthorized: true,
-      }, (res) => {
+      const req = https.request({ hostname, path, method: 'POST', headers }, (res) => {
         let data = '';
-        res.on('data', (chunk: string) => { data += chunk; });
+        res.on('data', (chunk) => { data += chunk; });
         res.on('end', () => {
           try {
-            const parsed = JSON.parse(data);
-            if (parsed.candidates?.[0]) {
-              const candidate = parsed.candidates[0];
-              if (candidate.finishReason === 'MAX_TOKENS') {
-                reject(new Error('Gemini response truncated due to token limit. Try reducing diff size.'));
-                return;
-              }
-              const content = candidate.content;
-
-              if (!content || !content.parts || !content.parts[0]) {
-                reject(new Error('Gemini returned no content (likely blocked by safety filters).'));
-                return;
-              }
-
-              const text = content.parts[0].text;
-              const cleanedText = text.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-              const result = JSON.parse(cleanedText);
-
-              if (!result.findings || !Array.isArray(result.findings)) {
-                throw new Error('Invalid response format: findings array is missing');
-              }
-
-              resolve(result as StructuredReviewResponse);
-            } else if (parsed.error) {
-              reject(new Error(`Gemini API error: ${parsed.error.message}`));
-            } else {
-              reject(new Error('Unexpected Gemini API response'));
+            if (res.statusCode && res.statusCode >= 400) {
+              return reject(new Error(`API status ${res.statusCode}: ${data}`));
             }
+            const parsed = JSON.parse(data);
+            const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!text) return reject(new Error('No content returned from Gemini'));
+            
+            resolve(JSON.parse(text) as StructuredReviewResponse);
           } catch (err) {
-            reject(new Error(`Failed to parse Gemini response: ${(err as Error).message}`));
+            reject(new Error(`Failed to parse response: ${(err as Error).message}\nData: ${data}`));
           }
         });
       });
-
       req.on('error', reject);
       req.write(body);
       req.end();
@@ -152,14 +120,12 @@ export class Reviewer {
   }
 
   async review(diffContent: string): Promise<StructuredReviewResponse> {
-    if (!diffContent || diffContent.trim().length === 0) {
-      return { summary: 'No code changes to review.', findings: [] };
-    }
+    if (!diffContent?.trim()) return { summary: 'No code changes.', findings: [] };
+    return this.reviewWithAPI(diffContent);
+  }
 
-    console.log('Reviewing code changes via Gemini REST API...');
-    const result = await this.reviewWithAPI(diffContent);
-    console.log('Gemini REST API review completed successfully.');
-    return result;
+  hasCriticalFindings(findings: Finding[]): boolean {
+    return findings.some(f => f.severity === 'CRITICAL');
   }
 
   filterDiff(diffContent: string, { includePatterns, excludePatterns, maxDiffSize }: FilterOptions): string {
@@ -190,31 +156,24 @@ export class Reviewer {
       if (!fileMatch) return true;
 
       const filePath = fileMatch[1];
+      
+      const isExcluded = excludes.some(pattern => {
+        const regex = new RegExp(pattern.replace(/\*/g, '.*'));
+        return regex.test(filePath);
+      });
 
-      for (const pattern of excludes) {
-        if (this.matchPattern(filePath, pattern)) return false;
-      }
+      if (isExcluded) return false;
 
       if (includes.length > 0) {
-        return includes.some(pattern => this.matchPattern(filePath, pattern));
+        return includes.some(pattern => {
+          const regex = new RegExp(pattern.replace(/\*/g, '.*'));
+          return regex.test(filePath);
+        });
       }
 
       return true;
     });
 
-    return filtered.map((s, i) => i === 0 ? s : `diff --git ${s}`).join('');
-  }
-
-  private matchPattern(filePath: string, pattern: string): boolean {
-    const escaped = pattern
-      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-      .replace(/\*/g, '.*')
-      .replace(/\?/g, '.');
-    const regex = new RegExp('^' + escaped + '$');
-    return regex.test(filePath) || filePath.endsWith(pattern.replace(/^\*/, ''));
-  }
-
-  hasCriticalFindings(findings: Finding[]): boolean {
-    return findings.some(f => f.severity.toUpperCase() === 'CRITICAL');
+    return filtered.join('diff --git ');
   }
 }

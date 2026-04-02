@@ -16,6 +16,12 @@ export interface GeminiConfig {
   model: string;
 }
 
+export interface VertexAIConfig {
+  projectId: string;
+  region: string;
+  token: string;
+}
+
 export interface ReviewConfig {
   maxFiles: number;
   maxDiffSize: number;
@@ -29,5 +35,6 @@ export interface ReviewConfig {
 export interface AppConfig {
   gitlab: GitLabConfig;
   gemini: GeminiConfig;
+  vertexai: VertexAIConfig;
   review: ReviewConfig;
 }

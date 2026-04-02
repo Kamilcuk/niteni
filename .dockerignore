@@ -1,0 +1,34 @@
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Git
+.git/
+.gitignore
+
+# CI/CD and Tooling
+.github/
+.vscode/
+.dockerignore
+Dockerfile
+README.md
+
+# Environment secrets
+.env
+.env.*
+secrets.yaml
+
+# Tests and documentation
+tests/
+docs/
+CONTRIBUTING.md
+LICENSE

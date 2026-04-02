@@ -30,8 +30,14 @@ export const config: AppConfig = {
   },
 
   gemini: {
-    apiKey: env.GEMINI_API_KEY || '',
-    model: env.GEMINI_MODEL || 'gemini-3-pro-preview',
+    apiKey: env.GOOGLE_API_KEY || env.GEMINI_API_KEY || '',
+    model: env.GEMINI_MODEL || 'gemini-1.5-pro',
+  },
+
+  vertexai: {
+    projectId: env.GOOGLE_PROJECT_ID || env.GCP_PROJECT_ID || '',
+    region: env.GOOGLE_REGION || env.GCP_REGION || 'us-central1',
+    token: '', // Handled dynamically via google-auth-library
   },
 
   review: {
@@ -54,8 +60,9 @@ export function validate(): string[] {
   if (!config.gitlab.projectId) {
     errors.push('CI_PROJECT_ID or GITLAB_PROJECT_ID is required');
   }
-  if (!config.gemini.apiKey) {
-    errors.push('GEMINI_API_KEY is required');
+
+  if (!config.gemini.apiKey && !config.vertexai.projectId) {
+    errors.push('Either GOOGLE_API_KEY or GOOGLE_PROJECT_ID is required');
   }
 
   return errors;

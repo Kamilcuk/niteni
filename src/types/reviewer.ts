@@ -1,8 +1,15 @@
 export type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
 
+export interface VertexAIOptions {
+  projectId: string;
+  region: string;
+  token?: string;
+}
+
 export interface ReviewerOptions {
-  geminiApiKey: string;
+  geminiApiKey?: string;
   model?: string;
+  vertexAI?: VertexAIOptions;
 }
 
 export interface FilterOptions {
